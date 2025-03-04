@@ -454,26 +454,30 @@ async function doLottery() {
     }
 }
 
-// 加载历史记录
-async function loadHistory() {
+// 加载最新抽中记录
+async function loadLatestResult() {
     try {
         const { data, error } = await supabase
             .from('draw_results')
             .select('*')
-            .order('drawn_at', { ascending: false });
+            .order('drawn_at', { ascending: false })
+            .limit(0);  // 增加限制条件
 
         if (error) throw error;
         
-        dom.resultTable.innerHTML = data.map(item => `
-            <tr>
-                <td>${item.town}</td>
-                <td>${item.team}</td>
-                <td>${item.name}</td>
-                <td>${new Date(item.drawn_at).toLocaleString()}</td>
-            </tr>
-        `).join('');
+        dom.resultTable.innerHTML = data.length > 0 
+            ? `
+                <tr>
+                    <td>${data[0].town}</td>
+                    <td>${data[0].team}</td>
+                    <td>${data[0].name}</td>
+                    <td>${new Date(data[0].drawn_at).toLocaleString()}</td>
+                </tr>
+              `
+            : '<tr><td colspan="4"></td></tr>';
     } catch (error) {
-        console.error('加载历史记录失败:', error);
+        console.error('加载数据失败:', error);
+        dom.resultTable.innerHTML = '<tr><td colspan="4">数据加载失败</td></tr>';
     }
 }
 
@@ -482,13 +486,13 @@ async function initApp() {
     if (!initSupabase()) return;
     
     initTownSelect();
-    await loadHistory();
+    await loadLatestResult();
     
     dom.lotteryBtn.addEventListener('click', doLottery);
     
     // 实时监听
     supabase.channel('public:draw_results')
-        .on('postgres_changes', { event: 'INSERT' }, () => loadHistory())
+        .on('postgres_changes', { event: 'INSERT' }, () => loadLatestResult())
         .subscribe();
 }
 
